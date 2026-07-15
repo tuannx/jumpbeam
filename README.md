@@ -11,7 +11,7 @@ JumpBeam turns a TV and a phone into a controller-free, 60-second movement game 
 3. Allow camera access, prop the phone up in landscape, and step back until the whole body is visible.
 4. Move hands and feet to pop bubbles on the TV for 60 seconds.
 
-The phone and TV connect directly through WebRTC DataChannel via PeerJS discovery. Camera frames are never sent. MediaPipe Pose Landmarker runs in the phone browser and sends only five normalized landmarks (nose, wrists, and ankles), capped at 20 updates per second.
+The phone and TV connect directly through PeerJS/WebRTC. The camera stream is mirrored peer-to-peer onto the TV as the AR background and is never uploaded or recorded by the app. MediaPipe Pose Landmarker runs in the phone browser and sends nine normalized landmarks (nose, wrists, ankles, shoulders, and hips) over a separate low-latency DataChannel, capped at 20 updates per second.
 
 ## Stack
 
@@ -56,7 +56,7 @@ The tests verify production rendering, product metadata, the 60-second round inv
 The MVP deliberately keeps a small, clean boundary between:
 
 - **Input adapter:** MediaPipe converts local camera frames into normalized points.
-- **Transport adapter:** PeerJS sends `PosePacket` data between devices.
+- **Transport adapter:** PeerJS sends the encrypted camera stream plus independent `PosePacket` control data between devices.
 - **Game domain:** the TV owns bubble spawning, collision, score, and timer state.
 - **Presentation:** responsive home, pairing, controller, playfield, and result views.
 
@@ -73,7 +73,7 @@ No account, database, analytics, or recorded replay is included in this first ve
 
 ## Privacy and child safety
 
-- Video remains on the phone and is not uploaded or recorded.
+- Video is shared only with the paired TV through an encrypted peer-to-peer media connection; it is not uploaded or recorded by the app.
 - No profiles, names, faces, or persistent identifiers are collected by the app.
 - An adult should place the phone safely and clear the movement area before play.
 

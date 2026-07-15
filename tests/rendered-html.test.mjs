@@ -22,9 +22,11 @@ test("renders product metadata and client shell", async () => {
 
 test("keeps privacy and game invariants in the implementation", async () => {
   const source = await readFile(new URL("app/jumpbeam-app.tsx", root), "utf8");
-  assert.match(source, /TRACKED_LANDMARKS = \[0, 15, 16, 27, 28\]/);
+  assert.match(source, /TRACKED_LANDMARKS = \[0, 15, 16, 27, 28, 11, 12, 23, 24\]/);
   assert.match(source, /ROUND_MS = 60_000/);
   assert.match(source, /reliable: false/);
-  assert.match(source, /never your video/i);
+  assert.match(source, /peer\.call\([^,]+, stream\)/);
+  assert.match(source, /call\.answer\(\)/);
+  assert.match(source, /encrypted and streamed directly/i);
   assert.doesNotMatch(source, /connection\.send\([^)]*video/i);
 });

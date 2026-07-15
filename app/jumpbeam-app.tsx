@@ -2,14 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import type { DataConnection } from "peerjs";
+import type { DataConnection, MediaConnection } from "peerjs";
 
 type Point = { x: number; y: number; visibility?: number };
 type PosePacket = { type: "pose"; points: Point[]; sentAt: number };
 type Bubble = { id: number; x: number; y: number; radius: number; hue: number; bornAt: number };
 type Mode = "home" | "tv" | "phone";
 
-const TRACKED_LANDMARKS = [0, 15, 16, 27, 28]; // nose, wrists, ankles
+const TRACKED_LANDMARKS = [0, 15, 16, 27, 28, 11, 12, 23, 24]; // nose, wrists, ankles, shoulders, hips
 const ROUND_MS = 60_000;
 const PEER_PREFIX = "jumpbeam-tv-";
 
@@ -49,12 +49,12 @@ export default function JumpBeamApp() {
         <div className="hero-copy">
           <p className="eyebrow">A 60-second brain break</p>
           <h1>Turn your TV into a <em>movement game.</em></h1>
-          <p className="lede">One phone. One TV. No controllers. Kids pop colorful bubbles with their hands and feet while on-device pose detection keeps the camera private.</p>
+          <p className="lede">One phone. One TV. No controllers. The phone mirrors its camera to the big screen while on-device pose detection turns body movement into AR game controls.</p>
           <div className="actions">
             <button className="primary" onClick={() => navigate("tv", roomCode())}>Open on TV <span>→</span></button>
             <button className="secondary" onClick={() => navigate("phone", "")}>Use this phone</button>
           </div>
-          <p className="privacy"><span>✓</span> Camera stays on your phone</p>
+          <p className="privacy"><span>✓</span> Encrypted peer-to-peer camera sharing</p>
         </div>
         <div className="hero-visual" aria-label="Illustration of a child popping bubbles">
           <div className="sun" /><div className="bubble b1">+1</div><div className="bubble b2" /><div className="bubble b3" />
@@ -82,6 +82,8 @@ function TvGame({ room: requestedRoom, onExit }: { room: string; onExit: () => v
   const [score, setScore] = useState(0);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [now, setNow] = useState(0);
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const nextBubble = useRef(1);
   const popped = useRef(new Set<number>());
   const joinUrl = typeof window === "undefined" ? "" : `${window.location.origin}${window.location.pathname}?mode=phone&room=${room}`;
@@ -104,6 +106,13 @@ function TvGame({ room: requestedRoom, onExit }: { room: string; onExit: () => v
         });
         connection.on("close", () => setStatus("Phone disconnected"));
       });
+      peer.on("call", (call) => {
+        call.answer();
+        call.on("stream", (stream) => {
+          setRemoteStream(stream);
+          setStatus("Camera live — move into view");
+        });
+      });
       peer.on("error", (error) => setStatus(error.type === "unavailable-id" ? "Room already open — refresh" : "Connection unavailable"));
     });
     return () => { active = false; peer?.destroy(); };
@@ -113,6 +122,13 @@ function TvGame({ room: requestedRoom, onExit }: { room: string; onExit: () => v
     const timer = window.setInterval(() => setNow(Date.now()), 100);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    const video = remoteVideoRef.current;
+    if (!video || !remoteStream) return;
+    video.srcObject = remoteStream;
+    void video.play();
+  }, [remoteStream, startedAt]);
 
   useEffect(() => {
     if (!startedAt || now - startedAt >= ROUND_MS) return;
@@ -148,9 +164,12 @@ function TvGame({ room: requestedRoom, onExit }: { room: string; onExit: () => v
       <header className="game-hud"><button className="ghost" onClick={onExit}>← Exit</button><div className="hud-pill">SCORE <strong>{score}</strong></div><div className="hud-pill">TIME <strong>{remaining}</strong></div></header>
       {!startedAt && <section className="pair-card"><p className="eyebrow">Pair your phone</p><h1>Room <span>{room}</span></h1><div className="qr-wrap">{joinUrl && <QRCodeSVG value={joinUrl} size={190} level="M" />}</div><p>Scan with your phone camera</p><code>{joinUrl}</code><div className="connection-dot"><i /> {status}</div></section>}
       {startedAt && !finished && <section className="playfield" aria-label="Pop the bubbles game">
+        <video ref={remoteVideoRef} className="tv-camera" muted playsInline />
+        <div className="ar-tint" />
         <div className="play-message">Move your hands & feet to pop!</div>
         {bubbles.map((bubble) => <span key={bubble.id} className="game-bubble" style={{ left: `${bubble.x}%`, top: `${bubble.y}%`, width: `${bubble.radius * 2}vw`, height: `${bubble.radius * 2}vw`, background: `hsl(${bubble.hue} 82% 62% / .85)` }} />)}
         {points.map((point, index) => <span key={index} className="tracker" style={{ left: `${point.x * 100}%`, top: `${point.y * 100}%` }} />)}
+        {points.length >= 9 && <div className="ar-hero" style={{ left: `${((points[7].x + points[8].x) / 2) * 100}%`, top: `${(((points[5].y + points[6].y) / 2) * .45 + ((points[7].y + points[8].y) / 2) * .55) * 100}%` }}><i className="hero-ring"/><i className="hero-core">J</i><i className="hero-cape"/></div>}
       </section>}
       {finished && <section className="result-card"><p className="eyebrow">Brain break complete</p><h1>{score} bubbles!</h1><p>Great moving. Take a breath and bring that energy back.</p><button className="primary" onClick={() => window.location.reload()}>Play again</button></section>}
     </main>
@@ -160,6 +179,8 @@ function TvGame({ room: requestedRoom, onExit }: { room: string; onExit: () => v
 function PhoneController({ room, onRoom, onExit }: { room: string; onRoom: (room: string) => void; onExit: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const connectionRef = useRef<DataConnection | null>(null);
+  const callRef = useRef<MediaConnection | null>(null);
+  const peerRef = useRef<import("peerjs").default | null>(null);
   const animationRef = useRef<number>(0);
   const [input, setInput] = useState(room);
   const [status, setStatus] = useState(room ? "Ready to connect" : "Enter the code shown on TV");
@@ -171,6 +192,8 @@ function PhoneController({ room, onRoom, onExit }: { room: string; onRoom: (room
     const stream = videoRef.current?.srcObject;
     if (stream) (stream as MediaStream).getTracks().forEach((track) => track.stop());
     connectionRef.current?.close();
+    callRef.current?.close();
+    peerRef.current?.destroy();
     setTracking(false);
   }, []);
 
@@ -187,9 +210,12 @@ function PhoneController({ room, onRoom, onExit }: { room: string; onRoom: (room
       videoRef.current.srcObject = stream;
       await videoRef.current.play();
       const peer = new Peer();
+      peerRef.current = peer;
+      await new Promise<void>((resolve, reject) => { peer.on("open", () => resolve()); peer.on("error", reject); window.setTimeout(() => reject(new Error("peer-timeout")), 12_000); });
       const connection = peer.connect(`${PEER_PREFIX}${cleanRoom.toLowerCase()}`, { reliable: false });
       connectionRef.current = connection;
       await new Promise<void>((resolve, reject) => { connection.on("open", () => resolve()); connection.on("error", reject); window.setTimeout(() => reject(new Error("timeout")), 12_000); });
+      callRef.current = peer.call(`${PEER_PREFIX}${cleanRoom.toLowerCase()}`, stream);
       const fileset = await vision.FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm");
       const landmarker = await vision.PoseLandmarker.createFromOptions(fileset, {
         baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task", delegate: "GPU" },
@@ -228,7 +254,7 @@ function PhoneController({ room, onRoom, onExit }: { room: string; onRoom: (room
         {!tracking && <label>ROOM CODE<input value={input} onChange={(event) => setInput(event.target.value.toUpperCase())} placeholder="ABC123" maxLength={6} autoCapitalize="characters" /></label>}
         <p className="phone-status"><i className={tracking ? "online" : ""}/>{status}</p>
         {!tracking ? <button className="primary full" disabled={loading} onClick={connect}>{loading ? "Connecting…" : "Connect & start camera"}</button> : <button className="secondary full" onClick={stop}>Stop camera</button>}
-        <p className="privacy-note">Pose detection runs on this device. Only five anonymous points are sent to the TV — never your video.</p>
+        <p className="privacy-note">Camera video is encrypted and streamed directly to the paired TV for the AR mirror. Pose detection stays on this phone; nine anonymous control points are sent separately for low-latency gameplay.</p>
       </section>
     </main>
   );
