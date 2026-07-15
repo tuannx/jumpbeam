@@ -2,7 +2,7 @@
 
 JumpBeam turns a TV and a phone into a controller-free, 60-second movement game for kids. The TV shows **Pop the Bubbles** while the phone detects wrists, ankles, and head position locally.
 
-**Live public MVP:** https://jumpbeam.dovuthanh2018.workers.dev
+**Live public MVP:** https://jumpbeam.tuannx87.workers.dev
 
 ## MVP flow
 
@@ -43,7 +43,7 @@ npm run lint
 
 ## Deploy to Cloudflare Workers
 
-After authenticating Wrangler, build and publish the public Worker with:
+After authenticating Wrangler as `tuannx87@gmail.com`, build and publish the public Worker to Cloudflare account `05130ca1f0bdabbab4d08a5d75544e92` with:
 
 ```bash
 npm run deploy:cloudflare
