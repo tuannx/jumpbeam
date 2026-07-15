@@ -2,6 +2,8 @@
 
 JumpBeam turns a TV and a phone into a controller-free, 60-second movement game for kids. The TV shows **Pop the Bubbles** while the phone detects wrists, ankles, and head position locally.
 
+**Live public MVP:** https://jumpbeam.dovuthanh2018.workers.dev
+
 ## MVP flow
 
 1. Open the site on a TV browser (or a laptop connected by HDMI) and choose **Open on TV**.
@@ -37,6 +39,14 @@ Open `http://localhost:3000`. For a realistic two-device test, use an HTTPS URL 
 npm run build
 npm test
 npm run lint
+```
+
+## Deploy to Cloudflare Workers
+
+After authenticating Wrangler, build and publish the public Worker with:
+
+```bash
+npm run deploy:cloudflare
 ```
 
 The tests verify production rendering, product metadata, the 60-second round invariant, the exact privacy-preserving landmark set, and that raw video is never sent through the peer connection.
