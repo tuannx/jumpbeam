@@ -24,6 +24,9 @@ test("keeps privacy and game invariants in the implementation", async () => {
   const source = await readFile(new URL("app/jumpbeam-app.tsx", root), "utf8");
   assert.match(source, /TRACKED_LANDMARKS = \[0, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28\]/);
   assert.match(source, /ROUND_MS = 60_000/);
+  assert.match(source, /SOLO_GOAL = 30/);
+  assert.match(source, /SOLO QUEST/);
+  assert.match(source, /one player's whole body in frame/);
   assert.match(source, /reliable: false/);
   assert.match(source, /peer\.call\([^,]+, stream\)/);
   assert.match(source, /call\.answer\(\)/);

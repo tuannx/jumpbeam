@@ -6,7 +6,7 @@ JumpBeam turns a TV and a phone into a controller-free, 60-second movement game 
 
 ## MVP flow
 
-1. Open the site on a TV browser (or a laptop connected by HDMI) and choose **Open on TV**.
+1. Open the site on a TV browser (or a laptop connected by HDMI) and choose **Start Solo Quest**.
 2. Scan the room QR code with a phone.
 3. Allow camera access, prop the phone up in landscape, and step back until the whole body is visible.
 4. Move hands and feet to pop bubbles on the TV for 60 seconds.
@@ -66,7 +66,7 @@ No account, database, analytics, or recorded replay is included in this first ve
 
 - Peer discovery uses the public PeerJS cloud service; production scale should use a managed/private PeerServer or a Cloudflare Durable Object signaling service.
 - The first pose-model load downloads MediaPipe WASM and the lite model from public CDNs.
-- One tracked player per room; no classroom/multi-player support yet.
+- Solo-first by design: exactly one tracked player per room, with a personal 30-prism goal and energy streak.
 - Accuracy depends on lighting, camera placement, and keeping the whole body visible.
 - Safari/TV browsers with limited WebRTC support may need a laptop/Chromecast/AirPlay fallback.
 - Automated checks cover rendering and game/privacy invariants; camera permission and two-device latency still require physical-device QA.
@@ -80,6 +80,6 @@ No account, database, analytics, or recorded replay is included in this first ve
 ## Next production steps
 
 1. Self-host signaling and pin MediaPipe artifacts to first-party storage.
-2. Add multi-player pose assignment and classroom controls.
+2. Consider multi-player pose assignment and classroom controls only after the solo loop is validated.
 3. Add device/browser telemetry without personal data.
 4. Run COPPA/privacy review and a physical-device matrix before public child-directed launch.

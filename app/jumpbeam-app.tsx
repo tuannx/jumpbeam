@@ -12,6 +12,7 @@ type Mode = "home" | "tv" | "phone";
 
 const TRACKED_LANDMARKS = [0, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28]; // nose, shoulders, elbows, wrists, hips, knees, ankles
 const ROUND_MS = 60_000;
+const SOLO_GOAL = 30;
 const PEER_PREFIX = "jumpbeam-tv-";
 const BUBBLE_GLYPHS = ["◆", "⚡", "★", "◉"] as const;
 
@@ -56,12 +57,12 @@ export default function JumpBeamApp() {
       <nav className="brand" aria-label="JumpBeam"><span className="brand-orb">J</span> JumpBeam <small>PLAY. MOVE. GLOW.</small></nav>
       <section className="hero">
         <div className="hero-copy">
-          <p className="eyebrow">A 60-second brain break</p>
-          <h1>Step inside <em>Prism Quest.</em></h1>
-          <p className="lede">An original AR movement adventure inspired by the strongest brain-break formats: clear physical cues, rhythmic hits, surprise rewards and STEM-powered energy.</p>
+          <p className="eyebrow">Solo AR adventure · 60 seconds</p>
+          <h1>Your move. <em>Your quest.</em></h1>
+          <p className="lede">A personal brain break where one child becomes the hero: follow clear movement cues, build an energy streak and beat your own Prism Quest score.</p>
           <div className="actions">
-            <button className="primary" onClick={() => navigate("tv", roomCode())}>Open on TV <span>→</span></button>
-            <button className="secondary" onClick={() => navigate("phone", "")}>Use this phone</button>
+            <button className="primary" onClick={() => navigate("tv", roomCode())}>Start Solo Quest <span>→</span></button>
+            <button className="secondary" onClick={() => navigate("phone", "")}>Pair solo camera</button>
           </div>
           <p className="privacy"><span>✓</span> Encrypted peer-to-peer camera sharing</p>
         </div>
@@ -73,7 +74,7 @@ export default function JumpBeamApp() {
       </section>
       <section className="world-system" aria-labelledby="world-system-title">
         <p className="eyebrow">Original visual system</p>
-        <h2 id="world-system-title">Four challenges. One magical world.</h2>
+        <h2 id="world-system-title">One hero. Four personal challenges.</h2>
         <div className="world-cards">
           <article className="world-card volcano"><span>▲</span><small>REACTION</small><h3>Lava Leap</h3><p>Coral danger zones, violet safe stones and big directional cues.</p></article>
           <article className="world-card rhythm"><span>◉</span><small>RHYTHM</small><h3>Beat Smash</h3><p>Toy-like drum orbs pulse in repeatable patterns for whole-body hits.</p></article>
@@ -86,7 +87,7 @@ export default function JumpBeamApp() {
         <div className="steps">
           <article><b>1</b><span className="step-icon">▣</span><h3>Open on your TV</h3><p>Visit this site in any modern TV browser or a laptop connected by HDMI.</p></article>
           <article><b>2</b><span className="step-icon">⌗</span><h3>Scan & pair</h3><p>Scan the QR code with your phone. The devices connect directly.</p></article>
-          <article><b>3</b><span className="step-icon">✦</span><h3>Move & play</h3><p>Prop up the phone, step back, and pop bubbles with your whole body.</p></article>
+          <article><b>3</b><span className="step-icon">✦</span><h3>Own the quest</h3><p>Step back alone, move your whole body and chase a new personal score.</p></article>
         </div>
       </section>
     </main>
@@ -210,14 +211,17 @@ function TvGame({ room: requestedRoom, onExit }: { room: string; onExit: () => v
 
   return (
     <main className="tv-shell">
-      <header className="game-hud"><button className="ghost" onClick={onExit}>← Exit</button><div className="hud-pill">SCORE <strong>{score}</strong></div><div className="hud-pill">TIME <strong>{remaining}</strong></div></header>
-      {!startedAt && <section className="pair-card"><p className="eyebrow">Pair your phone</p><h1>Room <span>{room}</span></h1><div className="qr-wrap">{joinUrl && <QRCodeSVG value={joinUrl} size={190} level="M" />}</div><p>Scan with your phone camera</p><code>{joinUrl}</code><div className="connection-dot"><i /> {status}</div></section>}
+      <header className="game-hud"><button className="ghost" onClick={onExit}>← Exit</button><div className="solo-chip">● SOLO QUEST</div><div className="hud-pill">PRISMS <strong>{score}<small>/{SOLO_GOAL}</small></strong></div><div className="hud-pill">TIME <strong>{remaining}</strong></div></header>
+      {!startedAt && <section className="pair-card"><p className="eyebrow">Solo player setup</p><h1>Room <span>{room}</span></h1><div className="qr-wrap">{joinUrl && <QRCodeSVG value={joinUrl} size={190} level="M" />}</div><p>Scan with your phone, then prop it up to frame one player</p><code>{joinUrl}</code><div className="connection-dot"><i /> {status}</div></section>}
       {startedAt && !finished && <section ref={playfieldRef} className="playfield" aria-label="Pop the bubbles game">
         <video ref={remoteVideoRef} className="tv-camera" muted playsInline />
         <div className="ar-tint" />
         <div className="energy-lightmap" aria-hidden="true" />
         <div className="quest-frame" aria-hidden="true" />
         <div className="quest-brand"><b>JUMPBEAM</b><span>PRISM QUEST</span></div>
+        <div className="solo-progress" aria-label={`${score} of ${SOLO_GOAL} solo goal`}>
+          <i style={{ width: `${Math.min(100, score / SOLO_GOAL * 100)}%` }} />
+        </div>
         <div key={phaseIndex} className={`phase-cue phase-${phaseIndex}`}><i>{phase.icon}</i><span><b>{phase.label}</b><small>{phase.instruction}</small></span></div>
         {bubbles.map((bubble) => <span key={bubble.id} className={`game-bubble orb-${bubble.id % 4}`} style={{ left: `${bubble.x}%`, top: `${bubble.y}%`, width: `${bubble.radius * 2}vw`, height: `${bubble.radius * 2}vw`, background: `hsl(${bubble.hue} 82% 62% / .85)` }}><b>{BUBBLE_GLYPHS[bubble.id % BUBBLE_GLYPHS.length]}</b></span>)}
         <NeonSkeleton points={points} />
@@ -226,7 +230,7 @@ function TvGame({ room: requestedRoom, onExit }: { room: string; onExit: () => v
         {combo > 1 && <div key={`${combo}-${impactId}`} className="combo-badge"><small>ENERGY STREAK</small><b>×{combo}</b></div>}
         <JuiceCanvas burst={burst} />
       </section>}
-      {finished && <section className="result-card"><p className="eyebrow">Brain break complete</p><h1>{score} bubbles!</h1><p>Great moving. Take a breath and bring that energy back.</p><button className="primary" onClick={() => window.location.reload()}>Play again</button></section>}
+      {finished && <section className="result-card"><p className="eyebrow">Solo quest complete</p><h1>{score} prisms!</h1><p>{score >= SOLO_GOAL ? "Goal crushed! You powered the whole Prism Core." : `Great moving — only ${SOLO_GOAL - score} more to power the Prism Core next time.`}</p><button className="primary" onClick={() => window.location.reload()}>Beat my score</button></section>}
     </main>
   );
 }
@@ -304,8 +308,8 @@ function PhoneController({ room, onRoom, onExit }: { room: string; onRoom: (room
     <main className="phone-shell">
       <header><button className="ghost" onClick={() => { stop(); onExit(); }}>← Back</button><div className="brand"><span className="brand-orb">J</span> JumpBeam</div></header>
       <section className="phone-card">
-        <p className="eyebrow">Phone controller</p><h1>{tracking ? "You're in the game!" : "Connect to your TV"}</h1>
-        <div className={`camera-frame ${tracking ? "active" : ""}`}><video ref={videoRef} muted playsInline /><div className="camera-guide">{tracking ? "Keep your whole body in frame" : "Camera preview appears here"}</div></div>
+        <p className="eyebrow">Solo camera</p><h1>{tracking ? "You're the hero!" : "Connect your solo quest"}</h1>
+        <div className={`camera-frame ${tracking ? "active" : ""}`}><video ref={videoRef} muted playsInline /><div className="camera-guide">{tracking ? "Keep one player's whole body in frame" : "Your solo camera preview appears here"}</div></div>
         {!tracking && <label>ROOM CODE<input value={input} onChange={(event) => setInput(event.target.value.toUpperCase())} placeholder="ABC123" maxLength={6} autoCapitalize="characters" /></label>}
         <p className="phone-status"><i className={tracking ? "online" : ""}/>{status}</p>
         {!tracking ? <button className="primary full" disabled={loading} onClick={connect}>{loading ? "Connecting…" : "Connect & start camera"}</button> : <button className="secondary full" onClick={stop}>Stop camera</button>}

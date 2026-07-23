@@ -29,6 +29,47 @@
   filter: blur(18px);
 }
 
+.solo-chip {
+  padding: 9px 14px;
+  border: 1px solid #65f1d788;
+  border-radius: 999px;
+  color: #75f5dc;
+  background: #102a34aa;
+  font: 900 11px var(--font-body);
+  letter-spacing: 1.4px;
+  box-shadow: 0 0 18px #54efd633;
+}
+
+.hud-pill strong small {
+  margin-left: 2px;
+  color: #9fa7c5;
+  font-size: 12px;
+}
+
+.solo-progress {
+  position: absolute;
+  z-index: 6;
+  top: 91px;
+  left: 50%;
+  width: min(360px, 38vw);
+  height: 7px;
+  overflow: hidden;
+  transform: translateX(-50%);
+  border: 1px solid #ffffff44;
+  border-radius: 999px;
+  background: #080a1e88;
+  box-shadow: 0 0 18px #664cff33;
+}
+
+.solo-progress i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #55eacb, #9b72ff, #ff67aa);
+  box-shadow: 0 0 14px #6ff7dc;
+  transition: width 180ms ease-out;
+}
+
 .playfield .game-bubble,
 .playfield .tracker,
 .playfield .ar-hero,
@@ -175,4 +216,5 @@
   .ar-hero { transition: none; }
   .ar-hero.impact,
   .combo-badge { animation: none; }
+  .solo-progress i { transition: none; }
 }
