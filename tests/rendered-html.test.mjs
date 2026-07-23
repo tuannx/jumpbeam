@@ -29,6 +29,9 @@ test("keeps privacy and game invariants in the implementation", async () => {
   assert.match(source, /cameraMode === "local"/);
   assert.match(source, /navigator\.mediaDevices\.getUserMedia/);
   assert.match(source, /Play on this laptop/);
+  assert.match(source, /tasks-vision@0\.10\.35\/wasm/);
+  assert.match(source, /falling back to CPU/);
+  assert.doesNotMatch(source, /tasks-vision@0\.10\.22\/wasm/);
   assert.match(source, /SOLO QUEST/);
   assert.match(source, /one player's whole body in frame/);
   assert.match(source, /reliable: false/);

@@ -15,6 +15,8 @@ const TRACKED_LANDMARKS = [0, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28]; /
 const ROUND_MS = 60_000;
 const SOLO_GOAL = 30;
 const PEER_PREFIX = "jumpbeam-tv-";
+const MEDIAPIPE_WASM_ROOT = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm";
+const MEDIAPIPE_MODEL_URL = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
 const BUBBLE_GLYPHS = ["◆", "⚡", "★", "◉"] as const;
 
 const CHALLENGE_PHASES = [
@@ -26,6 +28,23 @@ const CHALLENGE_PHASES = [
 
 function roomCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
+}
+
+async function createPoseLandmarker(vision: typeof import("@mediapipe/tasks-vision")) {
+  const fileset = await vision.FilesetResolver.forVisionTasks(MEDIAPIPE_WASM_ROOT);
+  const options = (delegate: "GPU" | "CPU") => ({
+    baseOptions: { modelAssetPath: MEDIAPIPE_MODEL_URL, delegate },
+    runningMode: "VIDEO" as const,
+    numPoses: 1,
+    minPoseDetectionConfidence: 0.45,
+    minTrackingConfidence: 0.45,
+  });
+  try {
+    return await vision.PoseLandmarker.createFromOptions(fileset, options("GPU"));
+  } catch (gpuError) {
+    console.warn("MediaPipe GPU delegate unavailable; falling back to CPU.", gpuError);
+    return vision.PoseLandmarker.createFromOptions(fileset, options("CPU"));
+  }
 }
 
 function queryMode(): { mode: Mode; room: string } {
@@ -157,7 +176,6 @@ function TvGame({ room: requestedRoom, cameraMode, onExit }: { room: string; cam
     const startLocalCamera = async () => {
       try {
         setStatus("Starting laptop camera…");
-        const vision = await import("@mediapipe/tasks-vision");
         localStream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
           audio: false,
@@ -167,13 +185,11 @@ function TvGame({ room: requestedRoom, cameraMode, onExit }: { room: string; cam
           return;
         }
         setRemoteStream(localStream);
-        setStatus("Step back until your whole body is visible");
-        const fileset = await vision.FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm");
-        const landmarker = await vision.PoseLandmarker.createFromOptions(fileset, {
-          baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task", delegate: "GPU" },
-          runningMode: "VIDEO", numPoses: 1, minPoseDetectionConfidence: 0.45, minTrackingConfidence: 0.45,
-        });
+        setStatus("Camera live — loading pose tracking…");
+        const vision = await import("@mediapipe/tasks-vision");
+        const landmarker = await createPoseLandmarker(vision);
         closeLandmarker = () => landmarker.close();
+        setStatus("Step back until your whole body is visible");
         let lastDetected = 0;
         const detect = () => {
           if (!active) return;
@@ -192,9 +208,14 @@ function TvGame({ room: requestedRoom, cameraMode, onExit }: { room: string; cam
         };
         detect();
       } catch (error) {
-        setStatus(error instanceof DOMException && error.name === "NotAllowedError"
-          ? "Camera permission is required — allow it and reload"
-          : "Laptop camera could not start");
+        console.error("JumpBeam laptop setup failed.", error);
+        if (error instanceof DOMException && error.name === "NotAllowedError") {
+          setStatus("Camera permission is required — allow it and reload");
+        } else if (localStream) {
+          setStatus("Camera is live, but pose tracking could not load — reload to retry");
+        } else {
+          setStatus("Laptop camera could not start");
+        }
       }
     };
     void startLocalCamera();
@@ -338,11 +359,7 @@ function PhoneController({ room, onRoom, onExit }: { room: string; onRoom: (room
       connectionRef.current = connection;
       await new Promise<void>((resolve, reject) => { connection.on("open", () => resolve()); connection.on("error", reject); window.setTimeout(() => reject(new Error("timeout")), 12_000); });
       callRef.current = peer.call(`${PEER_PREFIX}${cleanRoom.toLowerCase()}`, stream);
-      const fileset = await vision.FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm");
-      const landmarker = await vision.PoseLandmarker.createFromOptions(fileset, {
-        baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task", delegate: "GPU" },
-        runningMode: "VIDEO", numPoses: 1, minPoseDetectionConfidence: 0.45, minTrackingConfidence: 0.45,
-      });
+      const landmarker = await createPoseLandmarker(vision);
       setStatus("Connected — prop up phone and step back"); setTracking(true); setLoading(false);
       let lastSent = 0;
       const detect = () => {
