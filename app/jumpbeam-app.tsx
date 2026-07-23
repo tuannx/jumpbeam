@@ -125,7 +125,7 @@ function TvGame({ room: requestedRoom, cameraMode, onExit }: { room: string; cam
   const [burst, setBurst] = useState<BurstEvent | null>(null);
   const [impactId, setImpactId] = useState(0);
   const [startedAt, setStartedAt] = useState<number | null>(null);
-  const [now, setNow] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const nextBubble = useRef(1);
@@ -289,7 +289,7 @@ function TvGame({ room: requestedRoom, cameraMode, onExit }: { room: string; cam
 
   const remaining = startedAt ? Math.max(0, Math.ceil((ROUND_MS - (now - startedAt)) / 1000)) : 60;
   const finished = startedAt !== null && remaining === 0;
-  const phaseIndex = Math.min(3, Math.floor((60 - remaining) / 15));
+  const phaseIndex = Math.max(0, Math.min(CHALLENGE_PHASES.length - 1, Math.floor((60 - remaining) / 15)));
   const phase = CHALLENGE_PHASES[phaseIndex];
 
   return (

@@ -32,6 +32,8 @@ test("keeps privacy and game invariants in the implementation", async () => {
   assert.match(source, /tasks-vision@0\.10\.35\/wasm/);
   assert.match(source, /falling back to CPU/);
   assert.doesNotMatch(source, /tasks-vision@0\.10\.22\/wasm/);
+  assert.match(source, /const \[now, setNow\] = useState\(\(\) => Date\.now\(\)\)/);
+  assert.match(source, /Math\.max\(0, Math\.min\(CHALLENGE_PHASES\.length - 1,/);
   assert.match(source, /SOLO QUEST/);
   assert.match(source, /one player's whole body in frame/);
   assert.match(source, /reliable: false/);
