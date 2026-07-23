@@ -12,6 +12,14 @@ type Mode = "home" | "tv" | "phone";
 const TRACKED_LANDMARKS = [0, 15, 16, 27, 28, 11, 12, 23, 24]; // nose, wrists, ankles, shoulders, hips
 const ROUND_MS = 60_000;
 const PEER_PREFIX = "jumpbeam-tv-";
+const BUBBLE_GLYPHS = ["◆", "⚡", "★", "◉"] as const;
+
+const CHALLENGE_PHASES = [
+  { label: "PRISM POP", instruction: "Reach wide & collect the glowing prisms", icon: "◆" },
+  { label: "BEAT SMASH", instruction: "Hit the drum orbs with both hands", icon: "◉" },
+  { label: "MAGNET MOVE", instruction: "Pull the energy sparks toward your body", icon: "⚡" },
+  { label: "LAVA LEAP", instruction: "Keep moving — the floor is heating up!", icon: "▲" },
+] as const;
 
 function roomCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
@@ -48,8 +56,8 @@ export default function JumpBeamApp() {
       <section className="hero">
         <div className="hero-copy">
           <p className="eyebrow">A 60-second brain break</p>
-          <h1>Turn your TV into a <em>movement game.</em></h1>
-          <p className="lede">One phone. One TV. No controllers. The phone mirrors its camera to the big screen while on-device pose detection turns body movement into AR game controls.</p>
+          <h1>Step inside <em>Prism Quest.</em></h1>
+          <p className="lede">An original AR movement adventure inspired by the strongest brain-break formats: clear physical cues, rhythmic hits, surprise rewards and STEM-powered energy.</p>
           <div className="actions">
             <button className="primary" onClick={() => navigate("tv", roomCode())}>Open on TV <span>→</span></button>
             <button className="secondary" onClick={() => navigate("phone", "")}>Use this phone</button>
@@ -60,6 +68,16 @@ export default function JumpBeamApp() {
           <div className="sun" /><div className="bubble b1">+1</div><div className="bubble b2" /><div className="bubble b3" />
           <div className="kid"><i className="head"/><i className="body"/><i className="arm left"/><i className="arm right"/><i className="leg left"/><i className="leg right"/></div>
           <div className="floor-shadow" />
+        </div>
+      </section>
+      <section className="world-system" aria-labelledby="world-system-title">
+        <p className="eyebrow">Original visual system</p>
+        <h2 id="world-system-title">Four challenges. One magical world.</h2>
+        <div className="world-cards">
+          <article className="world-card volcano"><span>▲</span><small>REACTION</small><h3>Lava Leap</h3><p>Coral danger zones, violet safe stones and big directional cues.</p></article>
+          <article className="world-card rhythm"><span>◉</span><small>RHYTHM</small><h3>Beat Smash</h3><p>Toy-like drum orbs pulse in repeatable patterns for whole-body hits.</p></article>
+          <article className="world-card magnet"><span>⚡</span><small>STEM</small><h3>Magnet Move</h3><p>Cyan attraction arcs make push, pull and polarity visible.</p></article>
+          <article className="world-card mystery"><span>◆</span><small>DISCOVERY</small><h3>Prism Pop</h3><p>Mystery crates and collectible prisms create curiosity without clutter.</p></article>
         </div>
       </section>
       <section className="how">
@@ -158,6 +176,8 @@ function TvGame({ room: requestedRoom, onExit }: { room: string; onExit: () => v
 
   const remaining = startedAt ? Math.max(0, Math.ceil((ROUND_MS - (now - startedAt)) / 1000)) : 60;
   const finished = startedAt !== null && remaining === 0;
+  const phaseIndex = Math.min(3, Math.floor((60 - remaining) / 15));
+  const phase = CHALLENGE_PHASES[phaseIndex];
 
   return (
     <main className="tv-shell">
@@ -166,8 +186,10 @@ function TvGame({ room: requestedRoom, onExit }: { room: string; onExit: () => v
       {startedAt && !finished && <section className="playfield" aria-label="Pop the bubbles game">
         <video ref={remoteVideoRef} className="tv-camera" muted playsInline />
         <div className="ar-tint" />
-        <div className="play-message">Move your hands & feet to pop!</div>
-        {bubbles.map((bubble) => <span key={bubble.id} className="game-bubble" style={{ left: `${bubble.x}%`, top: `${bubble.y}%`, width: `${bubble.radius * 2}vw`, height: `${bubble.radius * 2}vw`, background: `hsl(${bubble.hue} 82% 62% / .85)` }} />)}
+        <div className="quest-frame" aria-hidden="true" />
+        <div className="quest-brand"><b>JUMPBEAM</b><span>PRISM QUEST</span></div>
+        <div key={phaseIndex} className={`phase-cue phase-${phaseIndex}`}><i>{phase.icon}</i><span><b>{phase.label}</b><small>{phase.instruction}</small></span></div>
+        {bubbles.map((bubble) => <span key={bubble.id} className={`game-bubble orb-${bubble.id % 4}`} style={{ left: `${bubble.x}%`, top: `${bubble.y}%`, width: `${bubble.radius * 2}vw`, height: `${bubble.radius * 2}vw`, background: `hsl(${bubble.hue} 82% 62% / .85)` }}><b>{BUBBLE_GLYPHS[bubble.id % BUBBLE_GLYPHS.length]}</b></span>)}
         {points.map((point, index) => <span key={index} className="tracker" style={{ left: `${point.x * 100}%`, top: `${point.y * 100}%` }} />)}
         {points.length >= 9 && <div className="ar-hero" style={{ left: `${((points[7].x + points[8].x) / 2) * 100}%`, top: `${(((points[5].y + points[6].y) / 2) * .45 + ((points[7].y + points[8].y) / 2) * .55) * 100}%` }}><i className="hero-ring"/><i className="hero-core">J</i><i className="hero-cape"/></div>}
       </section>}

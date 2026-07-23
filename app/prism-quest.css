@@ -1,0 +1,170 @@
+.world-system {
+  padding: 96px 28px 110px;
+  text-align: center;
+  background: #12142f;
+  color: white;
+}
+
+.world-system h2 {
+  margin: 14px 0 44px;
+  font: 800 clamp(34px, 5vw, 54px) var(--font-display);
+  letter-spacing: -2px;
+}
+
+.world-cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  max-width: 1180px;
+  margin: auto;
+}
+
+.world-card {
+  position: relative;
+  min-height: 292px;
+  overflow: hidden;
+  padding: 30px 24px;
+  border: 1px solid #ffffff20;
+  border-radius: 28px;
+  text-align: left;
+  background: linear-gradient(155deg, #2a2854, #171936);
+  box-shadow: inset 0 1px #ffffff24, 0 22px 45px #08091d88;
+}
+
+.world-card::after {
+  content: "";
+  position: absolute;
+  right: -50px;
+  bottom: -65px;
+  width: 170px;
+  height: 170px;
+  border-radius: 50%;
+  background: var(--glow);
+  filter: blur(35px);
+  opacity: 0.42;
+}
+
+.world-card > span {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  margin-bottom: 34px;
+  border-radius: 24px;
+  color: white;
+  font: 900 32px var(--font-display);
+  background: var(--accent);
+  box-shadow: 0 10px 24px var(--glow), inset 0 2px #ffffff55;
+}
+
+.world-card small { color: #bdb8e7; font-weight: 900; letter-spacing: 2px; }
+.world-card h3 { margin: 8px 0; font: 800 24px var(--font-display); }
+.world-card p { margin: 0; color: #b8bdd4; line-height: 1.55; }
+.world-card.volcano { --accent: linear-gradient(145deg, #ff8a57, #ff4f68); --glow: #ff5d73; }
+.world-card.rhythm { --accent: linear-gradient(145deg, #ffd166, #ff8b4b); --glow: #ffd166; }
+.world-card.magnet { --accent: linear-gradient(145deg, #62f2d2, #30aadb); --glow: #59f0d0; }
+.world-card.mystery { --accent: linear-gradient(145deg, #9b7cff, #6650df); --glow: #7157ff; }
+
+.quest-frame {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  background: url("/art/prism-quest-frame.webp") center / cover no-repeat;
+  pointer-events: none;
+  opacity: 0.78;
+}
+
+.quest-brand {
+  position: absolute;
+  z-index: 4;
+  bottom: max(22px, env(safe-area-inset-bottom));
+  left: max(28px, env(safe-area-inset-left));
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 13px;
+  border: 1px solid #ffffff38;
+  border-radius: 13px;
+  background: #131631bb;
+  box-shadow: 0 8px 20px #080a20aa;
+}
+
+.quest-brand b { color: #67f2d0; font: 900 13px var(--font-display); letter-spacing: 1.2px; }
+.quest-brand span { color: white; font: 800 11px var(--font-display); letter-spacing: 1.5px; }
+
+.phase-cue {
+  position: absolute;
+  z-index: 5;
+  top: max(22px, env(safe-area-inset-top));
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 380px;
+  padding: 11px 18px;
+  border: 2px solid #ffffff55;
+  border-radius: 18px;
+  transform: translateX(-50%);
+  background: linear-gradient(120deg, #342b7ddd, #171936e8);
+  box-shadow: 0 12px 30px #08091daa, inset 0 1px #ffffff42;
+  animation: cueArrival 0.55s cubic-bezier(.2,.9,.25,1.15);
+}
+
+.phase-cue i {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  border-radius: 13px;
+  background: #7157ff;
+  color: white;
+  font: normal 900 21px var(--font-display);
+  box-shadow: 0 0 18px #7157ff;
+}
+
+.phase-cue span { display: grid; text-align: left; }
+.phase-cue b { color: white; font: 900 15px var(--font-display); letter-spacing: 1.5px; }
+.phase-cue small { margin-top: 2px; color: #d6d5e7; font-weight: 700; }
+.phase-1 i { background: #ff9d43; box-shadow: 0 0 18px #ff9d43; }
+.phase-2 i { background: #39d9bf; box-shadow: 0 0 18px #39d9bf; }
+.phase-3 i { background: #ff576d; box-shadow: 0 0 18px #ff576d; }
+
+.game-bubble {
+  display: grid;
+  place-items: center;
+  border: 3px solid #ffffffaa;
+}
+
+.game-bubble b {
+  color: #fff;
+  font: 900 clamp(17px, 2.5vw, 38px) var(--font-display);
+  text-shadow: 0 3px 9px #211749cc;
+}
+
+.orb-0 { outline: 5px solid #77f5d444; }
+.orb-1 { outline: 5px solid #ffd16644; }
+.orb-2 { outline: 5px solid #927dff44; }
+.orb-3 { outline: 5px solid #ff637a44; }
+
+@keyframes cueArrival {
+  from { opacity: 0; transform: translate(-50%, -18px) scale(.92); }
+}
+
+@media (max-width: 900px) {
+  .world-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .phase-cue { top: auto; bottom: max(18px, env(safe-area-inset-bottom)); min-width: min(420px, 70vw); }
+}
+
+@media (max-width: 560px) {
+  .world-cards { grid-template-columns: 1fr; }
+  .world-card { min-height: 230px; }
+  .phase-cue small { display: none; }
+  .phase-cue { min-width: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .phase-cue { animation: none; }
+}

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Nunito, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import "./ar.css";
+import "./prism-quest.css";
 
 const display = Space_Grotesk({ variable: "--font-display", subsets: ["latin"] });
 const body = Nunito({ variable: "--font-body", subsets: ["latin"] });
