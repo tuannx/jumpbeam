@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import type { DataConnection, MediaConnection } from "peerjs";
+import { JuiceCanvas, NeonSkeleton, type BurstEvent, type TrackedPoint } from "./juice-effects";
 
-type Point = { x: number; y: number; visibility?: number };
+type Point = TrackedPoint;
 type PosePacket = { type: "pose"; points: Point[]; sentAt: number };
 type Bubble = { id: number; x: number; y: number; radius: number; hue: number; bornAt: number };
 type Mode = "home" | "tv" | "phone";
 
-const TRACKED_LANDMARKS = [0, 15, 16, 27, 28, 11, 12, 23, 24]; // nose, wrists, ankles, shoulders, hips
+const TRACKED_LANDMARKS = [0, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28]; // nose, shoulders, elbows, wrists, hips, knees, ankles
 const ROUND_MS = 60_000;
 const PEER_PREFIX = "jumpbeam-tv-";
 const BUBBLE_GLYPHS = ["◆", "⚡", "★", "◉"] as const;
@@ -98,11 +99,17 @@ function TvGame({ room: requestedRoom, onExit }: { room: string; onExit: () => v
   const [points, setPoints] = useState<Point[]>([]);
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
   const [score, setScore] = useState(0);
+  const [combo, setCombo] = useState(0);
+  const [burst, setBurst] = useState<BurstEvent | null>(null);
+  const [impactId, setImpactId] = useState(0);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [now, setNow] = useState(0);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const nextBubble = useRef(1);
+  const nextBurst = useRef(1);
+  const comboRef = useRef(0);
+  const playfieldRef = useRef<HTMLElement>(null);
   const popped = useRef(new Set<number>());
   const joinUrl = typeof window === "undefined" ? "" : `${window.location.origin}${window.location.pathname}?mode=phone&room=${room}`;
 
@@ -161,18 +168,40 @@ function TvGame({ room: requestedRoom, onExit }: { room: string; onExit: () => v
 
   useEffect(() => {
     if (!startedAt) return;
-    setBubbles((current) => {
-      let gained = 0;
-      const remaining = current.filter((bubble) => {
-        if (Date.now() - bubble.bornAt > 6000) return false;
-        const hit = points.some((point) => point.visibility !== 0 && Math.hypot(point.x * 100 - bubble.x, point.y * 100 - bubble.y) < bubble.radius + 3.5);
-        if (hit && !popped.current.has(bubble.id)) { popped.current.add(bubble.id); gained += 1; return false; }
-        return true;
-      });
-      if (gained) setScore((value) => value + gained);
-      return remaining;
+    let gained = 0;
+    let firstHit: Bubble | undefined;
+    const time = Date.now();
+    const remainingBubbles = bubbles.filter((bubble) => {
+      if (time - bubble.bornAt > 6000) return false;
+      const hit = points.some((point) => (point.visibility ?? 1) > 0.35 && Math.hypot(point.x * 100 - bubble.x, point.y * 100 - bubble.y) < bubble.radius + 3.5);
+      if (hit && !popped.current.has(bubble.id)) {
+        popped.current.add(bubble.id);
+        firstHit ??= bubble;
+        gained += 1;
+        return false;
+      }
+      return true;
     });
-  }, [points, startedAt]);
+    if (remainingBubbles.length !== bubbles.length) setBubbles(remainingBubbles);
+    if (!gained || !firstHit) return;
+
+    comboRef.current += gained;
+    setScore((value) => value + gained);
+    setCombo(comboRef.current);
+    setImpactId((value) => value + 1);
+    setBurst({ id: nextBurst.current++, x: firstHit.x / 100, y: firstHit.y / 100, hue: firstHit.hue, power: gained });
+
+    const shouldShake = gained > 1 || comboRef.current % 5 === 0;
+    if (shouldShake && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      const strength = gained > 1 ? 6 : 4;
+      playfieldRef.current?.animate([
+        { transform: "translate(0, 0)" },
+        { transform: `translate(${strength}px, ${-strength * 0.5}px)` },
+        { transform: `translate(${-strength}px, ${strength * 0.35}px)` },
+        { transform: "translate(0, 0)" },
+      ], { duration: gained > 1 ? 150 : 105, easing: "ease-out" });
+    }
+  }, [points, bubbles, startedAt]);
 
   const remaining = startedAt ? Math.max(0, Math.ceil((ROUND_MS - (now - startedAt)) / 1000)) : 60;
   const finished = startedAt !== null && remaining === 0;
@@ -183,15 +212,19 @@ function TvGame({ room: requestedRoom, onExit }: { room: string; onExit: () => v
     <main className="tv-shell">
       <header className="game-hud"><button className="ghost" onClick={onExit}>← Exit</button><div className="hud-pill">SCORE <strong>{score}</strong></div><div className="hud-pill">TIME <strong>{remaining}</strong></div></header>
       {!startedAt && <section className="pair-card"><p className="eyebrow">Pair your phone</p><h1>Room <span>{room}</span></h1><div className="qr-wrap">{joinUrl && <QRCodeSVG value={joinUrl} size={190} level="M" />}</div><p>Scan with your phone camera</p><code>{joinUrl}</code><div className="connection-dot"><i /> {status}</div></section>}
-      {startedAt && !finished && <section className="playfield" aria-label="Pop the bubbles game">
+      {startedAt && !finished && <section ref={playfieldRef} className="playfield" aria-label="Pop the bubbles game">
         <video ref={remoteVideoRef} className="tv-camera" muted playsInline />
         <div className="ar-tint" />
+        <div className="energy-lightmap" aria-hidden="true" />
         <div className="quest-frame" aria-hidden="true" />
         <div className="quest-brand"><b>JUMPBEAM</b><span>PRISM QUEST</span></div>
         <div key={phaseIndex} className={`phase-cue phase-${phaseIndex}`}><i>{phase.icon}</i><span><b>{phase.label}</b><small>{phase.instruction}</small></span></div>
         {bubbles.map((bubble) => <span key={bubble.id} className={`game-bubble orb-${bubble.id % 4}`} style={{ left: `${bubble.x}%`, top: `${bubble.y}%`, width: `${bubble.radius * 2}vw`, height: `${bubble.radius * 2}vw`, background: `hsl(${bubble.hue} 82% 62% / .85)` }}><b>{BUBBLE_GLYPHS[bubble.id % BUBBLE_GLYPHS.length]}</b></span>)}
+        <NeonSkeleton points={points} />
         {points.map((point, index) => <span key={index} className="tracker" style={{ left: `${point.x * 100}%`, top: `${point.y * 100}%` }} />)}
-        {points.length >= 9 && <div className="ar-hero" style={{ left: `${((points[7].x + points[8].x) / 2) * 100}%`, top: `${(((points[5].y + points[6].y) / 2) * .45 + ((points[7].y + points[8].y) / 2) * .55) * 100}%` }}><i className="hero-ring"/><i className="hero-core">J</i><i className="hero-cape"/></div>}
+        {points.length >= 13 && <div key={impactId} className="ar-hero impact" style={{ left: `${((points[7].x + points[8].x) / 2) * 100}%`, top: `${(((points[1].y + points[2].y) / 2) * .45 + ((points[7].y + points[8].y) / 2) * .55) * 100}%` }}><i className="hero-ring"/><i className="hero-core">J</i><i className="hero-cape"/></div>}
+        {combo > 1 && <div key={`${combo}-${impactId}`} className="combo-badge"><small>ENERGY STREAK</small><b>×{combo}</b></div>}
+        <JuiceCanvas burst={burst} />
       </section>}
       {finished && <section className="result-card"><p className="eyebrow">Brain break complete</p><h1>{score} bubbles!</h1><p>Great moving. Take a breath and bring that energy back.</p><button className="primary" onClick={() => window.location.reload()}>Play again</button></section>}
     </main>
@@ -276,7 +309,7 @@ function PhoneController({ room, onRoom, onExit }: { room: string; onRoom: (room
         {!tracking && <label>ROOM CODE<input value={input} onChange={(event) => setInput(event.target.value.toUpperCase())} placeholder="ABC123" maxLength={6} autoCapitalize="characters" /></label>}
         <p className="phone-status"><i className={tracking ? "online" : ""}/>{status}</p>
         {!tracking ? <button className="primary full" disabled={loading} onClick={connect}>{loading ? "Connecting…" : "Connect & start camera"}</button> : <button className="secondary full" onClick={stop}>Stop camera</button>}
-        <p className="privacy-note">Camera video is encrypted and streamed directly to the paired TV for the AR mirror. Pose detection stays on this phone; nine anonymous control points are sent separately for low-latency gameplay.</p>
+        <p className="privacy-note">Camera video is encrypted and streamed directly to the paired TV for the AR mirror. Pose detection stays on this phone; thirteen anonymous control points are sent separately for low-latency gameplay.</p>
       </section>
     </main>
   );
