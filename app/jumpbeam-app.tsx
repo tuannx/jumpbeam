@@ -8,7 +8,8 @@ import { JuiceCanvas, NeonSkeleton, type BurstEvent, type TrackedPoint } from ".
 type Point = TrackedPoint;
 type PosePacket = { type: "pose"; points: Point[]; sentAt: number };
 type Bubble = { id: number; x: number; y: number; radius: number; hue: number; bornAt: number };
-type Mode = "home" | "tv" | "phone";
+type Mode = "home" | "laptop" | "tv" | "phone";
+type CameraMode = "local" | "paired";
 
 const TRACKED_LANDMARKS = [0, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28]; // nose, shoulders, elbows, wrists, hips, knees, ankles
 const ROUND_MS = 60_000;
@@ -32,7 +33,7 @@ function queryMode(): { mode: Mode; room: string } {
   const params = new URLSearchParams(window.location.search);
   const mode = params.get("mode");
   return {
-    mode: mode === "tv" || mode === "phone" ? mode : "home",
+    mode: mode === "laptop" || mode === "tv" || mode === "phone" ? mode : "home",
     room: (params.get("room") || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6),
   };
 }
@@ -49,7 +50,8 @@ export default function JumpBeamApp() {
     setRoom(nextRoom);
   };
 
-  if (mode === "tv") return <TvGame room={room} onExit={() => navigate("home", "")} />;
+  if (mode === "laptop") return <TvGame room="" cameraMode="local" onExit={() => navigate("home", "")} />;
+  if (mode === "tv") return <TvGame room={room} cameraMode="paired" onExit={() => navigate("home", "")} />;
   if (mode === "phone") return <PhoneController room={room} onRoom={setRoom} onExit={() => navigate("home", "")} />;
 
   return (
@@ -61,10 +63,10 @@ export default function JumpBeamApp() {
           <h1>Your move. <em>Your quest.</em></h1>
           <p className="lede">A personal brain break where one child becomes the hero: follow clear movement cues, build an energy streak and beat your own Prism Quest score.</p>
           <div className="actions">
-            <button className="primary" onClick={() => navigate("tv", roomCode())}>Start Solo Quest <span>→</span></button>
-            <button className="secondary" onClick={() => navigate("phone", "")}>Pair solo camera</button>
+            <button className="primary" onClick={() => navigate("laptop", "")}>Play on this laptop <span>→</span></button>
+            <button className="secondary" onClick={() => navigate("tv", roomCode())}>Play on TV</button>
           </div>
-          <p className="privacy"><span>✓</span> Encrypted peer-to-peer camera sharing</p>
+          <p className="privacy"><span>✓</span> Pose detection runs privately in your browser</p>
         </div>
         <div className="hero-visual" aria-label="Illustration of a child popping bubbles">
           <div className="sun" /><div className="bubble b1">+1</div><div className="bubble b2" /><div className="bubble b3" />
@@ -83,10 +85,10 @@ export default function JumpBeamApp() {
         </div>
       </section>
       <section className="how">
-        <p className="eyebrow">Ready in under a minute</p><h2>Big-screen play, zero setup.</h2>
+        <p className="eyebrow">Ready in under a minute</p><h2>Play here or go big-screen.</h2>
         <div className="steps">
-          <article><b>1</b><span className="step-icon">▣</span><h3>Open on your TV</h3><p>Visit this site in any modern TV browser or a laptop connected by HDMI.</p></article>
-          <article><b>2</b><span className="step-icon">⌗</span><h3>Scan & pair</h3><p>Scan the QR code with your phone. The devices connect directly.</p></article>
+          <article><b>1</b><span className="step-icon">▣</span><h3>Choose your screen</h3><p>Play instantly with this laptop webcam, or open JumpBeam on a TV.</p></article>
+          <article><b>2</b><span className="step-icon">⌗</span><h3>Allow the camera</h3><p>Laptop play needs no pairing. TV play connects privately to your phone.</p></article>
           <article><b>3</b><span className="step-icon">✦</span><h3>Own the quest</h3><p>Step back alone, move your whole body and chase a new personal score.</p></article>
         </div>
       </section>
@@ -94,9 +96,9 @@ export default function JumpBeamApp() {
   );
 }
 
-function TvGame({ room: requestedRoom, onExit }: { room: string; onExit: () => void }) {
+function TvGame({ room: requestedRoom, cameraMode, onExit }: { room: string; cameraMode: CameraMode; onExit: () => void }) {
   const [room] = useState(requestedRoom || roomCode());
-  const [status, setStatus] = useState("Waiting for phone");
+  const [status, setStatus] = useState(cameraMode === "local" ? "Allow camera access to begin" : "Waiting for phone");
   const [points, setPoints] = useState<Point[]>([]);
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
   const [score, setScore] = useState(0);
@@ -111,10 +113,12 @@ function TvGame({ room: requestedRoom, onExit }: { room: string; onExit: () => v
   const nextBurst = useRef(1);
   const comboRef = useRef(0);
   const playfieldRef = useRef<HTMLElement>(null);
+  const localAnimationRef = useRef(0);
   const popped = useRef(new Set<number>());
   const joinUrl = typeof window === "undefined" ? "" : `${window.location.origin}${window.location.pathname}?mode=phone&room=${room}`;
 
   useEffect(() => {
+    if (cameraMode !== "paired") return;
     let peer: import("peerjs").default | undefined;
     let active = true;
     import("peerjs").then(({ default: Peer }) => {
@@ -142,7 +146,65 @@ function TvGame({ room: requestedRoom, onExit }: { room: string; onExit: () => v
       peer.on("error", (error) => setStatus(error.type === "unavailable-id" ? "Room already open — refresh" : "Connection unavailable"));
     });
     return () => { active = false; peer?.destroy(); };
-  }, [room]);
+  }, [cameraMode, room]);
+
+  useEffect(() => {
+    if (cameraMode !== "local") return;
+    let active = true;
+    let localStream: MediaStream | undefined;
+    let closeLandmarker: (() => void) | undefined;
+
+    const startLocalCamera = async () => {
+      try {
+        setStatus("Starting laptop camera…");
+        const vision = await import("@mediapipe/tasks-vision");
+        localStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false,
+        });
+        if (!active) {
+          localStream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        setRemoteStream(localStream);
+        setStatus("Step back until your whole body is visible");
+        const fileset = await vision.FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm");
+        const landmarker = await vision.PoseLandmarker.createFromOptions(fileset, {
+          baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task", delegate: "GPU" },
+          runningMode: "VIDEO", numPoses: 1, minPoseDetectionConfidence: 0.45, minTrackingConfidence: 0.45,
+        });
+        closeLandmarker = () => landmarker.close();
+        let lastDetected = 0;
+        const detect = () => {
+          if (!active) return;
+          const video = remoteVideoRef.current;
+          const timestamp = performance.now();
+          if (video && video.readyState >= 2 && timestamp - lastDetected > 50) {
+            const pose = landmarker.detectForVideo(video, timestamp).landmarks[0];
+            if (pose) {
+              setPoints(TRACKED_LANDMARKS.map((index) => ({ x: 1 - pose[index].x, y: pose[index].y, visibility: pose[index].visibility })));
+              setStartedAt((value) => value ?? Date.now());
+              setStatus("Camera live");
+            }
+            lastDetected = timestamp;
+          }
+          localAnimationRef.current = requestAnimationFrame(detect);
+        };
+        detect();
+      } catch (error) {
+        setStatus(error instanceof DOMException && error.name === "NotAllowedError"
+          ? "Camera permission is required — allow it and reload"
+          : "Laptop camera could not start");
+      }
+    };
+    void startLocalCamera();
+    return () => {
+      active = false;
+      cancelAnimationFrame(localAnimationRef.current);
+      closeLandmarker?.();
+      localStream?.getTracks().forEach((track) => track.stop());
+    };
+  }, [cameraMode]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 100);
@@ -154,7 +216,7 @@ function TvGame({ room: requestedRoom, onExit }: { room: string; onExit: () => v
     if (!video || !remoteStream) return;
     video.srcObject = remoteStream;
     void video.play();
-  }, [remoteStream, startedAt]);
+  }, [remoteStream, startedAt, cameraMode]);
 
   useEffect(() => {
     if (!startedAt || now - startedAt >= ROUND_MS) return;
@@ -211,9 +273,9 @@ function TvGame({ room: requestedRoom, onExit }: { room: string; onExit: () => v
 
   return (
     <main className="tv-shell">
-      <header className="game-hud"><button className="ghost" onClick={onExit}>← Exit</button><div className="solo-chip">● SOLO QUEST</div><div className="hud-pill">PRISMS <strong>{score}<small>/{SOLO_GOAL}</small></strong></div><div className="hud-pill">TIME <strong>{remaining}</strong></div></header>
-      {!startedAt && <section className="pair-card"><p className="eyebrow">Solo player setup</p><h1>Room <span>{room}</span></h1><div className="qr-wrap">{joinUrl && <QRCodeSVG value={joinUrl} size={190} level="M" />}</div><p>Scan with your phone, then prop it up to frame one player</p><code>{joinUrl}</code><div className="connection-dot"><i /> {status}</div></section>}
-      {startedAt && !finished && <section ref={playfieldRef} className="playfield" aria-label="Pop the bubbles game">
+      <header className="game-hud"><button className="ghost" onClick={onExit}>← Exit</button><div className="solo-chip">● SOLO QUEST · {cameraMode === "local" ? "LAPTOP" : "TV"}</div><div className="hud-pill">PRISMS <strong>{score}<small>/{SOLO_GOAL}</small></strong></div><div className="hud-pill">TIME <strong>{remaining}</strong></div></header>
+      {!startedAt && cameraMode === "paired" && <section className="pair-card"><p className="eyebrow">Solo player setup</p><h1>Room <span>{room}</span></h1><div className="qr-wrap">{joinUrl && <QRCodeSVG value={joinUrl} size={190} level="M" />}</div><p>Scan with your phone, then prop it up to frame one player</p><code>{joinUrl}</code><div className="connection-dot"><i /> {status}</div></section>}
+      {(startedAt || cameraMode === "local") && !finished && <section ref={playfieldRef} className="playfield" aria-label="Pop the bubbles game">
         <video ref={remoteVideoRef} className="tv-camera" muted playsInline />
         <div className="ar-tint" />
         <div className="energy-lightmap" aria-hidden="true" />
@@ -229,6 +291,7 @@ function TvGame({ room: requestedRoom, onExit }: { room: string; onExit: () => v
         {points.length >= 13 && <div key={impactId} className="ar-hero impact" style={{ left: `${((points[7].x + points[8].x) / 2) * 100}%`, top: `${(((points[1].y + points[2].y) / 2) * .45 + ((points[7].y + points[8].y) / 2) * .55) * 100}%` }}><i className="hero-ring"/><i className="hero-core">J</i><i className="hero-cape"/></div>}
         {combo > 1 && <div key={`${combo}-${impactId}`} className="combo-badge"><small>ENERGY STREAK</small><b>×{combo}</b></div>}
         <JuiceCanvas burst={burst} />
+        {!startedAt && cameraMode === "local" && <div className="laptop-setup"><i className="camera-pulse">◉</i><p className="eyebrow">Laptop solo mode</p><h1>Step back into frame</h1><p>{status}</p><small>The 60-second quest starts when your body is detected.</small></div>}
       </section>}
       {finished && <section className="result-card"><p className="eyebrow">Solo quest complete</p><h1>{score} prisms!</h1><p>{score >= SOLO_GOAL ? "Goal crushed! You powered the whole Prism Core." : `Great moving — only ${SOLO_GOAL - score} more to power the Prism Core next time.`}</p><button className="primary" onClick={() => window.location.reload()}>Beat my score</button></section>}
     </main>

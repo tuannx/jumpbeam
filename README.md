@@ -1,17 +1,16 @@
 # JumpBeam
 
-JumpBeam turns a TV and a phone into a controller-free, 60-second movement game for kids. The TV shows **Pop the Bubbles** while the phone detects wrists, ankles, and head position locally.
+JumpBeam turns a laptop webcam—or a TV paired with a phone—into a controller-free, 60-second movement game for kids.
 
 **Live public MVP:** https://jumpbeam.tuannx87.workers.dev
 
 ## MVP flow
 
-1. Open the site on a TV browser (or a laptop connected by HDMI) and choose **Start Solo Quest**.
-2. Scan the room QR code with a phone.
-3. Allow camera access, prop the phone up in landscape, and step back until the whole body is visible.
-4. Move hands and feet to pop bubbles on the TV for 60 seconds.
+1. On a laptop, choose **Play on this laptop**, allow webcam access, and step back.
+2. For a bigger screen, choose **Play on TV**, then scan its QR code with a phone.
+3. Keep one player's whole body visible and move hands and feet to collect prisms for 60 seconds.
 
-The phone and TV connect directly through PeerJS/WebRTC. The camera stream is mirrored peer-to-peer onto the TV as the AR background and is never uploaded or recorded by the app. MediaPipe Pose Landmarker runs in the phone browser and sends nine normalized landmarks (nose, wrists, ankles, shoulders, and hips) over a separate low-latency DataChannel, capped at 20 updates per second.
+In laptop mode, MediaPipe Pose Landmarker and the game both run in the same browser; no pairing or video upload is involved. In TV mode, the phone and TV connect directly through PeerJS/WebRTC. Thirteen normalized pose landmarks are sent over a separate low-latency DataChannel, capped at 20 updates per second.
 
 ## Stack
 

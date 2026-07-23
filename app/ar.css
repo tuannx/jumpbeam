@@ -70,6 +70,47 @@
   transition: width 180ms ease-out;
 }
 
+.laptop-setup {
+  position: absolute;
+  z-index: 9;
+  inset: 50% auto auto 50%;
+  width: min(520px, 86vw);
+  padding: 34px;
+  transform: translate(-50%, -50%);
+  border: 1px solid #ffffff33;
+  border-radius: 28px;
+  text-align: center;
+  color: white;
+  background: #0a0c26c9;
+  box-shadow: 0 30px 90px #050614aa, inset 0 0 50px #775cff22;
+  backdrop-filter: blur(18px);
+}
+
+.laptop-setup h1 {
+  margin: 8px 0;
+  font: 900 clamp(32px, 5vw, 58px)/1 var(--font-display);
+}
+
+.laptop-setup p:not(.eyebrow),
+.laptop-setup small { color: #c7cbe0; }
+
+.camera-pulse {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 20px;
+  border-radius: 50%;
+  color: #76f6db;
+  background: #55eace22;
+  box-shadow: 0 0 0 0 #65efd777;
+  animation: cameraReady 1.3s ease-out infinite;
+}
+
+@keyframes cameraReady {
+  70%, 100% { box-shadow: 0 0 0 24px #65efd700; }
+}
+
 .playfield .game-bubble,
 .playfield .tracker,
 .playfield .ar-hero,
@@ -217,4 +258,5 @@
   .ar-hero.impact,
   .combo-badge { animation: none; }
   .solo-progress i { transition: none; }
+  .camera-pulse { animation: none; }
 }
